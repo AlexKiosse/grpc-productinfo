@@ -20,9 +20,9 @@ import (
 
 var (
 	hostname = "localhost"
-	crtFile  = "../../certs/client/crt"
-	keyFile  = "../../certs/client.key"
-	caFile   = "../../certs/ca.crt"
+	crtFile  = "certs/client.crt"
+	keyFile  = "certs/client.key"
+	caFile   = "certs/ca.crt"
 )
 
 func main() {
@@ -55,7 +55,7 @@ func main() {
 	// Создаём учётные данные TLS
 	creds := credentials.NewTLS(tlsConfig)
 
-	conn, err := grpc.Dial("localhost:50051", grpc.WithTransportCredentials(creds))
+	conn, err := grpc.Dial("server:50051", grpc.WithTransportCredentials(creds))
 	if err != nil {
 		log.Fatalf("Product client: did not connect: %v", err)
 	}

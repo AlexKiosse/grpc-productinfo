@@ -1,0 +1,42 @@
+services:
+  server:
+    build:
+      context: ./service
+      dockerfile: Dockerfile
+    container_name: grpc-server
+    ports:
+      - "50051:50051"
+    volumes:
+      - ./certs:/root/certs
+    networks:
+      - grpc-network
+
+  product-client:
+    build:
+      context: ./client
+      dockerfile: product/Dockerfile
+    container_name: grpc-product-client
+    depends_on:
+      - server
+    volumes:
+      - ./certs:/root/certs
+    networks:
+      - grpc-network
+    entrypoint: ["/bin/sh", "-c", "sleep 3 && ./product_client"]
+
+  order-client:
+    build:
+      context: ./client
+      dockerfile: order/Dockerfile
+    container_name: grpc-order-client
+    depends_on:
+      - server
+    volumes:
+      - ./certs:/root/certs
+    networks:
+      - grpc-network
+    entrypoint: ["/bin/sh", "-c", "sleep 3 && ./order_client"]
+
+networks:
+  grpc-network:
+    driver: bridge

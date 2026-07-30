@@ -19,9 +19,9 @@ const (
 )
 
 var (
-	crtFile = "../certs/server.crt"
-	keyFile = "../certs/server.key"
-	caFile  = "../certs/ca.crt"
+	crtFile = "certs/server.crt"
+	keyFile = "certs/server.key"
+	caFile  = "certs/ca.crt"
 )
 
 func main() {
