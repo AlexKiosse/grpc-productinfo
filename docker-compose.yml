@@ -1,13 +1,38 @@
 services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: grpc-postgres
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin
+      POSTGRES_DB: productinfo
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - grpc-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d productinfo"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   server:
     build:
-      context: ./service
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: service/Dockerfile
     container_name: grpc-server
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://admin:admin@postgres:5432/productinfo?sslmode=disable
+      CERT_DIR: /root/certs
     ports:
       - "50051:50051"
     volumes:
-      - ./certs:/root/certs
+      - ./certs:/root/certs:ro
     networks:
       - grpc-network
 
@@ -36,6 +61,9 @@ services:
     networks:
       - grpc-network
     entrypoint: ["/bin/sh", "-c", "sleep 3 && ./order_client"]
+
+volumes:
+  postgres_data:
 
 networks:
   grpc-network:
