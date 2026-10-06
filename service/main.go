@@ -1,6 +1,9 @@
 package main
 
 import (
+	"context"
+	"os"
+	"productinfo/db/sqlc"
 	pb "productinfo/service/ecommerce"
 
 	"crypto/tls"
@@ -8,8 +11,10 @@ import (
 	"io/ioutil"
 	"log"
 	"net"
+	"path/filepath"
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )
@@ -18,22 +23,48 @@ const (
 	port = ":50051"
 )
 
-var (
-	crtFile = "certs/server.crt"
-	keyFile = "certs/server.key"
-	caFile  = "certs/ca.crt"
-)
+func certPath(name string) string {
+	dir := os.Getenv("CERT_DIR")
+	if dir == "" {
+		dir = "../certs"
+	}
+	return filepath.Join(dir, name)
+}
 
 func main() {
+	dbURL := os.Getenv("DATABASE_URL")
+	if dbURL == "" {
+		log.Fatalf("DATABASE_URL environment variable is not set")
+	}
+
+	// Пул соединения с БД
+	pool, err := pgxpool.New(context.Background(), dbURL)
+	if err != nil {
+		log.Fatalf("Unable to connect to database: %v", err)
+	}
+	defer pool.Close()
+
+	if err := pool.Ping(context.Background()); err != nil {
+		log.Fatalf("Database is not reachable: %v", err)
+	}
+	log.Println("Connect to database")
+
+	// Для работы с БД
+	queries := sqlc.New(pool)
+
+	srv := &server{
+		queries: queries,
+	}
+
 	// Загружаем ключ и сертификат сервера
-	certificate, err := tls.LoadX509KeyPair(crtFile, keyFile)
+	certificate, err := tls.LoadX509KeyPair(certPath("server.crt"), certPath("server.key"))
 	if err != nil {
 		log.Fatalf("Failed to load the server certificate and key: %v", err)
 	}
 
 	// Создаём пул доверенных сертификатов для проверки клиентов
 	certPool := x509.NewCertPool()
-	ca, err := ioutil.ReadFile(caFile)
+	ca, err := ioutil.ReadFile(certPath("ca.crt"))
 	if err != nil {
 		log.Fatalf("Failed to read the CA certificate: %v", err)
 	}
@@ -64,7 +95,7 @@ func main() {
 		grpc.Creds(creds),
 	)
 
-	pb.RegisterProductInfoServer(s, &server{})
+	pb.RegisterProductInfoServer(s, srv)
 	pb.RegisterOrderManagementServer(s, &orderServer{})
 
 	lis, err := net.Listen("tcp", port)
